@@ -74,3 +74,14 @@ class UsageSchema(TenantUserEntitySchema):
     @classmethod
     def validate_amount(cls, value: Decimal) -> Decimal:
         return decimal_amount(value)
+
+
+class QuotaSchema(BaseModel):
+    user_id: str | None = None
+    asset: str
+    quota: Decimal
+    unit: str | None = None
+    variant: str | None = None
+    _quota: Decimal | None = None
+
+    model_config = ConfigDict(allow_inf_nan=True)
