@@ -16,7 +16,7 @@ class Settings(config.Settings):
 
     project_name: str = os.getenv("PROJECT_NAME")
     base_dir: Path = Path(__file__).resolve().parent.parent
-    base_path: str = "/api/ocr/v1"
+    base_path: str = "/api/ai/v1"
 
     coverage_dir: Path = base_dir / "htmlcov"
     currency: str = "IRR"
@@ -26,6 +26,8 @@ class Settings(config.Settings):
     metis_api_key: str = os.getenv("METIS_API_KEY")
     pishrun_api_key: str = os.getenv("PISHRUN_API_KEY")
     dify_api_key: str = os.getenv("DIFY_API_KEY")
+
+    minutes_price: float = os.getenv("MINUTES_PRICE", 1)
 
     @classmethod
     def get_log_config(cls, console_level: str = "INFO", **kwargs: object) -> dict:

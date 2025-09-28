@@ -7,20 +7,20 @@ from usso.integrations.fastapi import USSOAuthentication
 
 from server.config import Settings
 
-from .models import OcrTask
-from .schemas import OcrTaskSchema, OcrTaskSchemaCreate
+from .models import TranslateTask
+from .schemas import TranslateSchema, TranslateSchemaCreate
 
 
-class OCRRouter(AbstractTaskRouter):
-    model = OcrTask
-    schema = OcrTaskSchema
+class TranslateRouter(AbstractTaskRouter):
+    model = TranslateTask
+    schema = TranslateSchema
 
     def __init__(self) -> None:
         super().__init__(
             user_dependency=USSOAuthentication(),
             draftable=False,
-            prefix="/ocrs",
-            tags=["OCR"],
+            prefix="/translates",
+            tags=["Translate"],
         )
 
     def config_routes(self, **kwargs: object) -> None:
@@ -37,19 +37,19 @@ class OCRRouter(AbstractTaskRouter):
         offset: int = Query(0, ge=0),
         limit: int = Query(10, ge=1, le=Settings.page_max_limit),
         user_id: str | None = None,
-    ) -> PaginatedResponse[OcrTaskSchema]:
+    ) -> PaginatedResponse[TranslateSchema]:
         return await self._list_items(request, offset, limit, user_id=user_id)
 
     async def create_item(
         self,
         request: Request,
-        data: OcrTaskSchemaCreate,
+        data: TranslateSchemaCreate,
         background_tasks: BackgroundTasks,
-    ) -> OcrTask:
+    ) -> TranslateTask:
         return await super().create_item(request, data.model_dump(), background_tasks)
 
     async def get_result(self, request: Request, uid: str):  # noqa: ANN201
-        task: OcrTask = await self.retrieve_item(request, uid)
+        task: TranslateTask = await self.retrieve_item(request, uid)
 
         # Assuming the OCR result is stored in task.result or similar
         # Adjust the attribute as per your OcrTask model
@@ -65,4 +65,4 @@ class OCRRouter(AbstractTaskRouter):
         )
 
 
-router = OCRRouter().router
+router = TranslateRouter().router

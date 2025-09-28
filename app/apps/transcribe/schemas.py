@@ -7,14 +7,10 @@ from fastapi_mongo_base.tasks import TaskMixin
 from pydantic import BaseModel
 
 
-class OcrTaskSchemaCreate(BaseModel):
+class TranscribeTaskSchemaCreate(BaseModel):
     file_url: str
     user_id: str | None = None
     webhook_url: str | None = None
-
-    @property
-    def is_pdf(self) -> bool:
-        return self.file_url.endswith(".pdf")
 
     async def file_content(self) -> BytesIO:
         if hasattr(self, "_file_content"):
@@ -32,7 +28,15 @@ class OcrTaskSchemaCreate(BaseModel):
         return base64.b64encode(content.getvalue()).decode("utf-8")
 
 
-class OcrTaskSchema(UserOwnedEntitySchema, TaskMixin, OcrTaskSchemaCreate):
+class TranscribeTaskSchema(
+    UserOwnedEntitySchema, TaskMixin, TranscribeTaskSchemaCreate
+):
     result: str | None = None
     usage_amount: float | None = None
     usage_id: str | None = None
+    transcription_job_id: str | None = None
+
+    @property
+    def audio_duration(self) -> float:
+        # todo: get audio duration from file
+        return 5

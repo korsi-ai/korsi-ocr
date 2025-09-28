@@ -9,7 +9,7 @@ from server.config import Settings
 
 from .saas import QuotaSchema, UsageCreateSchema, UsageSchema
 
-resource_variant = getattr(Settings, "UFAAS_RESOURCE_VARIANT", "ocr")
+resource_variant = getattr(Settings, "UFAAS_RESOURCE_VARIANT", "")
 
 
 @asynccontextmanager

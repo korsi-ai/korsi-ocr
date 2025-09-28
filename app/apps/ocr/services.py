@@ -16,7 +16,7 @@ PPTX_EXTS = {
 }
 
 
-async def process_ocr_task_service(task: OcrTask) -> OcrTask:
+async def process_ocr(task: OcrTask) -> OcrTask:
     logging.info("Starting processing for task %s", task.id)
     file_content = await task.file_content()
     file_type = mime.check_file_type(file_content)
