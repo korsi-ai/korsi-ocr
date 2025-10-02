@@ -3,6 +3,7 @@ from io import BytesIO
 from fastapi import BackgroundTasks, Query, Request
 from fastapi.responses import PlainTextResponse, StreamingResponse
 from fastapi_mongo_base.routes import AbstractTaskRouter, PaginatedResponse
+from soniox.types import TranscriptionWebhook
 from usso.integrations.fastapi import USSOAuthentication
 
 from server.config import Settings
@@ -80,7 +81,7 @@ class TranscribeRouter(AbstractTaskRouter):
         request: Request,
         background_tasks: BackgroundTasks,
         uid: str,
-        data: speechmatics.TranscribeWebhookSchema | None = None,
+        data: speechmatics.TranscribeWebhookSchema | TranscriptionWebhook | None = None,
         status: str | None = None,
     ) -> dict:
         item: TranscribeTask = await self.get_item(uid, user_id=None)
@@ -88,7 +89,7 @@ class TranscribeRouter(AbstractTaskRouter):
             background_tasks.add_task(services.process_error_webhook, item)
             return {"message": "Error"}
 
-        background_tasks.add_task(services.process_subtitle_webhook, item, data)
+        background_tasks.add_task(services.process_transcription_webhook, item, data)
         return {}
 
 

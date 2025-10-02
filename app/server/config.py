@@ -26,6 +26,7 @@ class Settings(config.Settings):
     metis_api_key: str = os.getenv("METIS_API_KEY")
     pishrun_api_key: str = os.getenv("PISHRUN_API_KEY")
     dify_api_key: str = os.getenv("DIFY_API_KEY")
+    soniox_api_key: str = os.getenv("SONIOX_API_KEY")
 
     minutes_price: float = os.getenv("MINUTES_PRICE", 1)
 

@@ -121,6 +121,18 @@ class AsyncDifyClient(httpx.AsyncClient):
         response.raise_for_status()
         return response.json().get("answer")
 
+    async def translate(self, prompt: str) -> str:
+        json_data = {
+            "inputs": {},
+            "query": prompt,
+            "response_mode": "blocking",
+            "conversation_id": "",
+            "user": "me",
+        }
+        response = await self.post("/chat-messages", json=json_data)
+        response.raise_for_status()
+        return response.json().get("answer")
+
     async def ocr_image(self, file: Path | str | Image.Image) -> str:
         if isinstance(file, Image.Image):
             file_id = await self.upload_image(file)

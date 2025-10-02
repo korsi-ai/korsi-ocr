@@ -5,7 +5,7 @@ WORKDIR /app
 COPY pyproject.toml pyproject.toml
 
 # RUN uv sync --no-dev --no-cache --no-install-project
-RUN uv pip install --system --no-cache-dir .
+RUN uv pip install --system --no-cache-dir --upgrade .
 
 
 FROM python:3.13-slim AS fast-server

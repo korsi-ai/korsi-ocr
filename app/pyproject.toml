@@ -7,7 +7,7 @@ requires-python = ">=3.13"
 dependencies = [
     "aiofiles>=24.1.0",
     "beanie>=2.0.0",
-    "fastapi-mongo-base>=1.0.35",
+    "fastapi-mongo-base>=1.0.36",
     "httpx>=0.28.1",
     "pdf2image>=1.17.0",
     "pillow>=11.3.0",
@@ -15,8 +15,9 @@ dependencies = [
     "python-dotenv>=1.1.1",
     "python-magic>=0.4.27",
     "python-pptx>=1.0.2",
+    "soniox-sdk>=0.1.2",
     "ufaas>=0.3.8",
-    "usso>=0.28.40",
+    "usso>=0.28.41",
     "uvicorn>=0.37.0",
 ]
 
