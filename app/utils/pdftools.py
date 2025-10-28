@@ -5,6 +5,14 @@ import pdf2image
 from PIL import Image
 
 
+def number_of_pages(path: Path) -> int:
+    """
+    Get number of pages in PDF file using pdf2image.pdfinfo_from_path for efficiency.
+    """
+    info = pdf2image.pdfinfo_from_path(str(path))
+    return int(info.get("Pages", 0))
+
+
 def extract_pdf_pages(path: Path) -> list[Image.Image]:
     return pdf2image.convert_from_path(str(path))
 

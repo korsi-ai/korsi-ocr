@@ -25,7 +25,7 @@ async def process_transcribe(
     sync: bool = False,
     **kwargs: object,
 ) -> TranscribeTask:
-    logging.info("Starting processing for task %s", task.id)
+    logging.info("Starting processing for task %s", task.uid)
 
     quota = await finance.check_quota(
         task.user_id, task.audio_duration, raise_exception=False

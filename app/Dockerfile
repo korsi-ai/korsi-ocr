@@ -16,7 +16,7 @@ COPY --from=fast-uv /usr/local/lib/python3.13/site-packages /usr/local/lib/pytho
 WORKDIR /app
 
 RUN apt-get update \
-    && apt-get install -y libmagic1 \
+    && apt-get install -y libmagic1 poppler-utils \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 

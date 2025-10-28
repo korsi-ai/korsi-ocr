@@ -17,15 +17,19 @@ class Settings(config.Settings):
     project_name: str = os.getenv("PROJECT_NAME", "pishrun ai")
     base_dir: Path = Path(__file__).resolve().parent.parent
     base_path: str = "/api/ai/v1"
+    storage_path: str = os.getenv("STORAGE_PATH", str(base_dir / "storage"))
 
     coverage_dir: Path = base_dir / "htmlcov"
     currency: str = "IRR"
 
     finance_api_key: str | None = os.getenv("API_KEY")
+    media_api_key: str | None = os.getenv("MEDIA_API_KEY")
+
     gemini_api_key: str | None = os.getenv("GEMINI_API_KEY")
     metis_api_key: str | None = os.getenv("METIS_API_KEY")
     pishrun_api_key: str | None = os.getenv("PISHRUN_API_KEY")
     dify_api_key: str | None = os.getenv("DIFY_API_KEY")
+    openrouter_api_key: str | None = os.getenv("OPENROUTER_API_KEY")
     soniox_api_key: str | None = os.getenv("SONIOX_API_KEY")
 
     minutes_price: float = float(os.getenv("MINUTES_PRICE", 1))
