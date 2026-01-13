@@ -1,14 +1,15 @@
 [project]
-name = "ocr"
+name = "ai-tools"
 version = "0.1.0"
 description = "The OCR API to convert images to text"
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.12"
 dependencies = [
     "aiofiles>=25.1.0",
     "beanie>=2.0.0",
     "fastapi-mongo-base>=1.0.41",
     "httpx>=0.28.1",
+    "pydub>=0.25.1",
     "mypy>=1.18.2",
     "openai>=2.6.1",
     "pdf2image>=1.17.0",

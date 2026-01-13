@@ -30,6 +30,15 @@ class TranscribeTaskSchemaCreate(BaseModel):
         return base64.b64encode(content.getvalue()).decode("utf-8")
 
 
+class ChunkMetadata(BaseModel):
+    chunk_id: int
+    start_ms: int
+    end_ms: int
+    file_path: str
+    job_id: str | None = None
+    text: str | None = None
+
+
 class TranscribeTaskSchema(  # type: ignore[misc]
     UserOwnedEntitySchema, TaskMixin, TranscribeTaskSchemaCreate
 ):
@@ -37,6 +46,7 @@ class TranscribeTaskSchema(  # type: ignore[misc]
     usage_amount: float | None = None
     usage_id: str | None = None
     transcription_job_id: str | None = None
+    chunks: list[ChunkMetadata] | None = None
 
     @property
     def audio_duration(self) -> float:

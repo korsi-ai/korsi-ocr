@@ -34,6 +34,32 @@ class Settings(config.Settings):
 
     minutes_price: float = float(os.getenv("MINUTES_PRICE", 1))
 
+    transcribe_enable_chunking: bool = os.getenv(
+        "TRANSCRIBE_ENABLE_CHUNKING", "1"
+    ) == "1"
+    transcribe_chunk_min_minutes: int = int(
+        os.getenv("TRANSCRIBE_CHUNK_MIN_MINUTES", 5)
+    )
+    transcribe_chunk_max_minutes: int = int(
+        os.getenv("TRANSCRIBE_CHUNK_MAX_MINUTES", 10)
+    )
+    transcribe_chunk_min_silence_ms: int = int(
+        os.getenv("TRANSCRIBE_CHUNK_MIN_SILENCE_MS", 750)
+    )
+    transcribe_chunk_silence_threshold: int = int(
+        os.getenv("TRANSCRIBE_CHUNK_SILENCE_THRESHOLD", -40)
+    )
+    transcribe_chunk_format: str = os.getenv("TRANSCRIBE_CHUNK_FORMAT", "wav")
+    transcribe_max_parallel_requests: int = int(
+        os.getenv("TRANSCRIBE_MAX_PARALLEL_REQUESTS", 3)
+    )
+    transcribe_poll_interval_seconds: float = float(
+        os.getenv("TRANSCRIBE_POLL_INTERVAL_SECONDS", 5)
+    )
+    transcribe_chunking_fallback_single: bool = os.getenv(
+        "TRANSCRIBE_CHUNKING_FALLBACK_SINGLE", "1"
+    ) == "1"
+
     @classmethod
     def get_log_config(cls, console_level: str = "INFO", **kwargs: object) -> dict:
         log_config = {

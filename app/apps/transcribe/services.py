@@ -1,11 +1,15 @@
+import asyncio
 import logging
 import math
+from collections.abc import Sequence
+from pathlib import Path
 
 from fastapi_mongo_base.tasks import TaskStatusEnum
 from soniox import SonioxClient
 from soniox.languages import Language
 from soniox.types import (
     TranscriptionConfig,
+    TranscriptionJob,
     TranscriptionJobStatus,
     TranscriptionWebhook,
 )
@@ -13,9 +17,11 @@ from soniox.types import (
 from server.config import Settings
 from utils import conditions, finance, texttools
 
+from . import chunker
 from .models import TranscribeTask
 
 soniox = SonioxClient(Settings.soniox_api_key)
+CHUNK_STORAGE_ROOT = Path(Settings.storage_path) / "transcribe-chunks"
 
 
 async def process_transcribe(
@@ -33,15 +39,23 @@ async def process_transcribe(
     if quota < 1:
         return await save_error(task, "insufficient_quota")
 
+    if Settings.transcribe_enable_chunking:
+        logging.info("Chunked transcription enabled for task %s", task.uid)
+        try:
+            return await _process_chunked_transcribe(task, sync=sync)
+        except Exception:
+            logging.exception("Chunked transcription failed for %s", task.uid)
+            if not Settings.transcribe_chunking_fallback_single:
+                return await save_error(task, "chunk_transcription_failed")
+            logging.info("Falling back to single job transcription for %s", task.uid)
+
+    return await _process_single_job(task, sync=sync)
+
+
+async def _process_single_job(task: TranscribeTask, *, sync: bool) -> TranscribeTask:
     job = await soniox.transcribe_url_async(
         task.file_url,
-        TranscriptionConfig(  # type: ignore[call-arg]
-            language_hints=[Language.PERSIAN, Language.ENGLISH],
-            enable_language_identification=True,
-            enable_speaker_diarization=True,
-            client_reference_id=task.uid,
-            webhook_url=task.item_webhook_url,
-        ),
+        _build_transcription_config(task, chunk_id=None, use_webhook=True),
     )
 
     # job_id = await speechmatics.Speechmatics().create_transcribe_job(
@@ -82,6 +96,166 @@ async def process_transcribe(
             id=job_result.id,
             status=job_result.status,
         ),
+    )
+
+
+async def _process_chunked_transcribe(
+    task: TranscribeTask, *, sync: bool
+) -> TranscribeTask:
+    chunk_plan = await chunker.create_chunk_plan(
+        task_uid=task.uid,
+        file_url=task.file_url,
+        storage_root=CHUNK_STORAGE_ROOT,
+        min_chunk_ms=Settings.transcribe_chunk_min_minutes * 60 * 1000,
+        max_chunk_ms=Settings.transcribe_chunk_max_minutes * 60 * 1000,
+        silence_len_ms=Settings.transcribe_chunk_min_silence_ms,
+        silence_threshold_db=Settings.transcribe_chunk_silence_threshold,
+        chunk_format=Settings.transcribe_chunk_format,
+    )
+    if sync:
+        logging.debug("Running chunked transcription synchronously for %s", task.uid)
+    logging.info(
+        "Task %s chunked into %s segments",
+        task.uid,
+        len(chunk_plan.chunks),
+    )
+    task.chunks = [
+        {
+            "chunk_id": chunk.chunk_id,
+            "start_ms": chunk.start_ms,
+            "end_ms": chunk.end_ms,
+            "file_path": str(chunk.file_path),
+        }
+        for chunk in chunk_plan.chunks
+    ]
+    await task.save_report(f"Chunked into {len(chunk_plan.chunks)} segments")
+    await task.save()
+
+    try:
+        chunk_results = await _transcribe_chunks(task, chunk_plan)
+    finally:
+        chunk_plan.cleanup()
+
+    ordered_results = sorted(
+        chunk_results,
+        key=lambda result: (result.chunk.start_ms, result.chunk.chunk_id),
+    )
+    task.transcription_job_id = (
+        ordered_results[0].job_id if ordered_results else task.transcription_job_id
+    )
+    task.chunks = [
+        {
+            "chunk_id": result.chunk.chunk_id,
+            "start_ms": result.chunk.start_ms,
+            "end_ms": result.chunk.end_ms,
+            "file_path": str(result.chunk.file_path),
+            "job_id": result.job_id,
+            "text": result.text,
+        }
+        for result in ordered_results
+    ]
+    await task.save_report(f"Transcribed {len(ordered_results)} chunks")
+    await task.save()
+
+    combined_text = _combine_chunk_texts(ordered_results)
+    total_cost = sum(result.transcription_cost for result in ordered_results)
+    await finance.meter_cost(task.user_id, total_cost)
+    await conditions.Conditions().release_condition(task.uid)
+    return await save_result(task, combined_text, total_cost)
+
+
+async def _transcribe_chunks(
+    task: TranscribeTask,
+    chunk_plan: chunker.ChunkPlan,
+) -> list[chunker.ChunkTranscriptionResult]:
+    if not chunk_plan.chunks:
+        return []
+
+    parallelism = max(1, Settings.transcribe_max_parallel_requests)
+    semaphore = asyncio.Semaphore(parallelism)
+
+    async def run_chunk(
+        audio_chunk: chunker.AudioChunk,
+    ) -> chunker.ChunkTranscriptionResult:
+        async with semaphore:
+            job = await soniox.transcribe_file_async(
+                str(audio_chunk.file_path),
+                _build_transcription_config(task, chunk_id=audio_chunk.chunk_id),
+            )
+            job_result = await _wait_for_job_completion(job.id)
+            if job_result.status != TranscriptionJobStatus.COMPLETED:
+                raise RuntimeError(
+                    f"Chunk {audio_chunk.chunk_id} "
+                    f"failed with status {job_result.status}"
+                )
+            transcript = await soniox.get_transcription_result_async(job.id)
+            transcription_cost = math.ceil(
+                ((job_result.audio_duration_ms or audio_chunk.duration_ms) / 60000)
+                * Settings.minutes_price
+            )
+            return chunker.ChunkTranscriptionResult(
+                chunk=audio_chunk,
+                job_id=job.id,
+                text=transcript.text,
+                audio_duration_ms=(
+                    job_result.audio_duration_ms or audio_chunk.duration_ms
+                ),
+                transcription_cost=transcription_cost,
+            )
+
+    tasks = [asyncio.create_task(run_chunk(chunk)) for chunk in chunk_plan.chunks]
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+    errors = [result for result in results if isinstance(result, Exception)]
+    if errors:
+        for error in errors:
+            logging.exception("Chunk transcription error: %s", error)
+        raise errors[0]
+
+    return [
+        result
+        for result in results
+        if isinstance(result, chunker.ChunkTranscriptionResult)
+    ]
+
+
+async def _wait_for_job_completion(job_id: str) -> TranscriptionJob:
+    while True:
+        job = await soniox.get_transcription_job_async(job_id)
+        if job.status == TranscriptionJobStatus.COMPLETED:
+            return job
+        if job.status == TranscriptionJobStatus.ERROR:
+            raise RuntimeError(f"Job {job_id} failed: {job.error_message}")
+        await asyncio.sleep(Settings.transcribe_poll_interval_seconds)
+
+
+def _combine_chunk_texts(results: Sequence[chunker.ChunkTranscriptionResult]) -> str:
+    ordered = sorted(
+        results, key=lambda result: (result.chunk.start_ms, result.chunk.chunk_id)
+    )
+    parts = []
+    for result in ordered:
+        text = (result.text or "").strip()
+        if text:
+            parts.append(text)
+    if not parts:
+        return ""
+    combined = "\n\n".join(parts)
+    return texttools.normalize_text(combined)
+
+
+def _build_transcription_config(
+    task: TranscribeTask,
+    *,
+    chunk_id: int | None,
+    use_webhook: bool = False,
+) -> TranscriptionConfig:
+    client_reference = f"{task.uid}:{chunk_id}" if chunk_id is not None else task.uid
+    return TranscriptionConfig(  # type: ignore[call-arg]
+        language_hints=[Language.PERSIAN, Language.ENGLISH],
+        enable_language_identification=True,
+        enable_speaker_diarization=True,
+        client_reference_id=client_reference,
+        webhook_url=task.item_webhook_url if use_webhook else None,
     )
 
 

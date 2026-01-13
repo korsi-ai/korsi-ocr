@@ -1,4 +1,4 @@
-FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim AS fast-uv
+FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim AS fast-uv
 
 WORKDIR /app
 
@@ -8,17 +8,17 @@ COPY pyproject.toml pyproject.toml
 RUN uv pip install --system --no-cache-dir --upgrade .
 
 
-FROM python:3.13-slim AS fast-server
+FROM python:3.12-slim AS fast-server
 
 WORKDIR /app
 
 RUN apt-get update \
-    && apt-get install -y libmagic1 poppler-utils \
+    && apt-get install -y libmagic1 poppler-utils ffmpeg \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy installed site-packages from build stage
-COPY --from=fast-uv /usr/local/lib/python3.13/site-packages /usr/local/lib/python3.13/site-packages
+COPY --from=fast-uv /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
 
 RUN adduser --disabled-password --gecos '' user \
     && mkdir /app/logs \

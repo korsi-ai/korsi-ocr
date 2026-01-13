@@ -36,6 +36,12 @@ class TranscribeRouter(AbstractTaskRouter, usso_routes.AbstractTenantUSSORouter)
             status_code=200,
         )
         self.router.add_api_route(
+            "/{uid}/webhook/{chunk_id}",
+            self.webhook_chunk,
+            methods=["POST"],
+            status_code=200,
+        )
+        self.router.add_api_route(
             "/{uid}/result",
             self.get_result,
             methods=["GET"],
@@ -95,6 +101,30 @@ class TranscribeRouter(AbstractTaskRouter, usso_routes.AbstractTenantUSSORouter)
         request: Request,
         background_tasks: BackgroundTasks,
         uid: str,
+        data: speechmatics.TranscribeWebhookSchema | TranscriptionWebhook | None = None,
+        status: str | None = None,
+    ) -> dict:
+        item: TranscribeTask = await self.get_item(
+            uid, user_id=None, ignore_user_id=True
+        )
+        if status == "error":
+            background_tasks.add_task(services.process_error_webhook, item)
+            return {"message": "Error"}
+
+        if isinstance(data, TranscriptionWebhook):
+            background_tasks.add_task(
+                services.process_transcription_webhook, item, data
+            )
+        else:
+            await services.save_error(item, "Invalid webhook data")
+        return {}
+
+    async def webhook_chunk(
+        self,
+        request: Request,
+        background_tasks: BackgroundTasks,
+        uid: str,
+        chunk_id: int,
         data: speechmatics.TranscribeWebhookSchema | TranscriptionWebhook | None = None,
         status: str | None = None,
     ) -> dict:
