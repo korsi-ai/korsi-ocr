@@ -20,7 +20,7 @@ dependencies = [
     "python-pptx>=1.0.2",
     "soniox-sdk>=0.1.6",
     "ufaas>=0.3.9",
-    "usso>=0.28.47",
+    "usso>=0.29.15",
     "uvicorn>=0.37.0",
     "zstandard>=0.25.0",
 ]
